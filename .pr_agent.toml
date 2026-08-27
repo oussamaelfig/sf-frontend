@@ -10,7 +10,12 @@ Beyond the generic checks:
 3. Async work feeding a form submit must gate the submit and invalidate stale
    results — flag any state update after an await without a generation check.
 4. Tailwind must use design-system tokens, never raw color classes.
-5. Flag generated artifacts and dead code; this repo values minimal diffs.
+5. Form fields must stay metadata-driven (CONTACT_FIELD_GROUPS); custom
+   controls submit through hidden inputs collected by formDataToValues —
+   flag ad-hoc inputs the collector never reads.
+6. Every contract change must update the MSW handlers and the affected test
+   suites in the same PR.
+7. Flag generated artifacts and dead code; this repo values minimal diffs.
 """
 
 [pr_code_suggestions]
