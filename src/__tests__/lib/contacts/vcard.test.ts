@@ -69,6 +69,28 @@ describe("buildVCard", () => {
     expect(card).toContain("NOTE:line one\\nline two");
   });
 
+  it("folds long lines at 75 octets with space-led continuations", () => {
+    const card = buildVCard(makeContact({ notes: "x".repeat(300) }));
+    const physical = card.split("\r\n");
+
+    const encoder = new TextEncoder();
+    for (const line of physical) {
+      expect(encoder.encode(line).length).toBeLessThanOrEqual(75);
+    }
+
+    // Unfolding (strip CRLF + space) restores the logical line intact.
+    const unfolded = card.replace(/\r\n /g, "");
+    expect(unfolded).toContain(`NOTE:${"x".repeat(300)}`);
+  });
+
+  it("counts folding in octets so multi-byte text cannot overflow", () => {
+    const card = buildVCard(makeContact({ notes: "é".repeat(100) }));
+    const encoder = new TextEncoder();
+    for (const line of card.split("\r\n")) {
+      expect(encoder.encode(line).length).toBeLessThanOrEqual(75);
+    }
+  });
+
   it("never embeds the photo payload", () => {
     const card = buildVCard(
       makeContact({ photo: "data:image/png;base64,QUJD" }),

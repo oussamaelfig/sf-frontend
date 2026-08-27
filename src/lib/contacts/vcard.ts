@@ -16,6 +16,34 @@ function esc(value: string): string {
     .replace(/\r?\n/g, "\\n");
 }
 
+/**
+ * Fold a content line at 75 octets per RFC 2426 §2.6: continuations begin
+ * with a single space and may carry 74 octets. Counted in UTF-8 octets, not
+ * characters, so multi-byte content cannot overflow the limit.
+ */
+function fold(line: string): string {
+  const encoder = new TextEncoder();
+  if (encoder.encode(line).length <= 75) return line;
+
+  const folded: string[] = [];
+  let current = "";
+  let octets = 0;
+  let limit = 75;
+  for (const char of line) {
+    const size = encoder.encode(char).length;
+    if (octets + size > limit) {
+      folded.push(current);
+      current = " ";
+      octets = 1;
+      limit = 75;
+    }
+    current += char;
+    octets += size;
+  }
+  folded.push(current);
+  return folded.join("\r\n");
+}
+
 const ADR_TYPE: Record<Address["type"], string> = {
   Home: "HOME",
   Work: "WORK",
@@ -52,7 +80,7 @@ export function buildVCard(contact: Contact): string {
   if (contact.notes) lines.push(`NOTE:${esc(contact.notes)}`);
 
   lines.push("END:VCARD");
-  return lines.join("\r\n");
+  return lines.map(fold).join("\r\n");
 }
 
 /** Data URL for a download link — no client JS needed to save the .vcf. */
