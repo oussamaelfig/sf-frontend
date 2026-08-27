@@ -43,6 +43,16 @@ const gitSha =
 // so it needs a Node runtime. `output: "export"` is deliberately not offered.
 const nextConfig: NextConfig = {
   trailingSlash: true,
+  // The contact form submits photos as base64 data URLs; the API allows up to
+  // 2 MiB decoded (~2.8 MB encoded), which exceeds the 1 MB server-action
+  // default. 4 MB leaves room for the rest of the form and encoding overhead.
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "4mb",
+    },
+  },
+  // Keep the generated AGENTS.md / CLAUDE.md files out of the repo.
+  agentRules: false,
   // Hosts allowed to load dev-only resources (/_next/hmr, /_next/static…) when the
   // dev server is reached from something other than localhost — a phone or another
   // machine on the LAN. Matched on hostname alone: ports are ignored, so this has
