@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ContactInput } from "./types";
+import { ADDRESS_TYPES, type ContactInput } from "./types";
 
 /**
  * Client/server-shared validation for the contact form.
@@ -32,8 +32,38 @@ function requiredText(max: number, label: string) {
 const PHOTO_DATA_URL = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
 /** The API caps photos at 2 MiB decoded ≈ 2.8M base64 characters. */
 const MAX_PHOTO_CHARS = 2_800_000;
+/** Mirrors the API's per-contact address cap. */
+export const MAX_ADDRESSES = 10;
+
+/** One postal address as edited in the form; mirrors the API's `AddressCreate`. */
+export const addressInputSchema = z.object({
+  type: z.enum(ADDRESS_TYPES),
+  street: optionalText(300, "Street"),
+  city: optionalText(120, "City"),
+  state: optionalText(120, "State"),
+  postal_code: optionalText(20, "Postal code"),
+  country: optionalText(120, "Country"),
+});
 
 export const contactInputSchema = z.object({
+  // The address editor submits its rows as JSON through one hidden input,
+  // since FormData has no native shape for a list of structured records.
+  addresses: z
+    .string()
+    .default("[]")
+    .transform((value, ctx) => {
+      try {
+        return JSON.parse(value || "[]") as unknown;
+      } catch {
+        ctx.addIssue({ code: "custom", message: "Addresses could not be read" });
+        return z.NEVER;
+      }
+    })
+    .pipe(
+      z
+        .array(addressInputSchema)
+        .max(MAX_ADDRESSES, `A contact can have at most ${MAX_ADDRESSES} addresses`),
+    ),
   first_name: requiredText(100, "First name"),
   last_name: requiredText(100, "Last name"),
   email: z
@@ -46,11 +76,6 @@ export const contactInputSchema = z.object({
   phone: optionalText(40, "Phone"),
   company: optionalText(200, "Company"),
   job_title: optionalText(200, "Job title"),
-  address: optionalText(300, "Address"),
-  city: optionalText(120, "City"),
-  state: optionalText(120, "State"),
-  postal_code: optionalText(20, "Postal code"),
-  country: optionalText(120, "Country"),
   notes: z
     .string()
     .trim()
@@ -72,6 +97,26 @@ export const contactInputSchema = z.object({
 
 export type ContactFormValues = z.input<typeof contactInputSchema>;
 
+/**
+ * Parse an echoed `addresses` JSON string back into rows, or null when it is
+ * not a valid address array. Echoed form values are untrusted runtime data —
+ * a rejected submit can carry any string — so the editor must not assume the
+ * shape survived the round trip.
+ */
+export function safeParseAddresses(
+  value: string,
+): z.output<typeof addressInputSchema>[] | null {
+  try {
+    const result = z
+      .array(addressInputSchema)
+      .max(MAX_ADDRESSES)
+      .safeParse(JSON.parse(value));
+    return result.success ? result.data : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Collapse a ZodError into one message per field, keyed by input name. */
 export function zodFieldErrors(
   error: z.ZodError,
@@ -91,7 +136,8 @@ export function zodFieldErrors(
 /* ------------------------------------------------------------------ */
 
 export interface ContactFieldSpec {
-  name: keyof ContactInput;
+  /** Plain-string fields only; photo and addresses use custom controls. */
+  name: Exclude<keyof ContactInput, "addresses">;
   label: string;
   type?: "text" | "email" | "tel" | "textarea";
   required?: boolean;
@@ -169,48 +215,6 @@ export const CONTACT_FIELD_GROUPS: ContactFieldGroup[] = [
     ],
   },
   {
-    title: "Address",
-    description: "Optional postal details.",
-    fields: [
-      {
-        name: "address",
-        label: "Street address",
-        maxLength: 300,
-        placeholder: "1 Market St, Suite 400",
-        autoComplete: "street-address",
-        wide: true,
-      },
-      {
-        name: "city",
-        label: "City",
-        maxLength: 120,
-        placeholder: "San Francisco",
-        autoComplete: "address-level2",
-      },
-      {
-        name: "state",
-        label: "State / region",
-        maxLength: 120,
-        placeholder: "CA",
-        autoComplete: "address-level1",
-      },
-      {
-        name: "postal_code",
-        label: "Postal code",
-        maxLength: 20,
-        placeholder: "94105",
-        autoComplete: "postal-code",
-      },
-      {
-        name: "country",
-        label: "Country",
-        maxLength: 120,
-        placeholder: "USA",
-        autoComplete: "country-name",
-      },
-    ],
-  },
-  {
     title: "Notes",
     description: "Anything worth remembering. No length limit.",
     fields: [
@@ -241,8 +245,9 @@ export function formDataToValues(
         String(formData.get(field.name) ?? ""),
       ]),
     ),
-    // The photo control is custom (file picker + preview), so it lives outside
-    // CONTACT_FIELD_GROUPS and submits through a hidden input instead.
+    // The photo and address controls are custom (picker/repeating editor), so
+    // they live outside CONTACT_FIELD_GROUPS and submit through hidden inputs.
     photo: String(formData.get("photo") ?? ""),
+    addresses: String(formData.get("addresses") ?? "[]"),
   } as Record<keyof ContactInput, string>;
 }

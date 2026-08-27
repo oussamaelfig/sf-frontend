@@ -5,11 +5,13 @@ import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { AlertCircle, Loader2 } from "lucide-react";
 import Field from "@/components/ui/Field";
+import AddressesField, { toAddressInput } from "@/components/contacts/AddressesField";
 import PhotoField from "@/components/contacts/PhotoField";
 import Button, { buttonClasses } from "@/components/ui/Button";
-import { CONTACT_FIELD_GROUPS } from "@/lib/contacts/schema";
+import { CONTACT_FIELD_GROUPS, safeParseAddresses } from "@/lib/contacts/schema";
 import {
   EMPTY_FORM_STATE,
+  type AddressInput,
   type Contact,
   type ContactInput,
   type FormState,
@@ -33,6 +35,17 @@ function SubmitButton({ label, disabled }: { label: string; disabled?: boolean }
   );
 }
 
+/** Addresses to seed the editor with: the echoed submit, else the contact's. */
+function initialAddresses(state: FormState, contact?: Contact): AddressInput[] {
+  if (state.values?.addresses) {
+    // Echoes are untrusted: a rejected submit can carry any string, so parse
+    // and validate rather than cast; bad echoes fall back to the stored set.
+    const echoed = safeParseAddresses(state.values.addresses);
+    if (echoed) return echoed;
+  }
+  return (contact?.addresses ?? []).map(toAddressInput);
+}
+
 /**
  * Create/edit form. The field list comes from `CONTACT_FIELD_GROUPS`, and the
  * action is a bound server action — so a submit is a plain POST that works
@@ -53,7 +66,7 @@ export default function ContactForm({
   // Saving mid-conversion would submit a stale photo, so hold the button.
   const [photoBusy, setPhotoBusy] = useState(false);
 
-  function valueFor(name: keyof ContactInput): string {
+  function valueFor(name: Exclude<keyof ContactInput, "addresses">): string {
     return state.values?.[name] ?? contact?.[name] ?? "";
   }
 
@@ -118,6 +131,24 @@ export default function ContactForm({
           </div>
         </fieldset>
       ))}
+
+      <fieldset className="space-y-4">
+        <legend className="sr-only">Addresses</legend>
+
+        <div className="border-b border-hairline pb-2">
+          <h2 className="font-display text-sm font-semibold text-foreground">
+            Addresses
+          </h2>
+          <p className="text-[13px] text-muted-foreground">
+            A contact can have several, each marked Home, Work, or Other.
+          </p>
+        </div>
+
+        <AddressesField
+          defaultValue={initialAddresses(state, contact)}
+          error={state.fieldErrors?.addresses}
+        />
+      </fieldset>
 
       <div className="flex items-center gap-2 border-t border-hairline pt-4">
         <SubmitButton label={submitLabel} disabled={photoBusy} />
