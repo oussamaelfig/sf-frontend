@@ -33,7 +33,44 @@ describe("ContactForm", () => {
     expect(screen.getByLabelText(/first name/i)).toHaveValue("Ada");
     expect(screen.getByLabelText(/^email/i)).toHaveValue("ada@example.com");
     // Nulls become empty inputs rather than the string "null".
-    expect(screen.getByLabelText(/street address/i)).toHaveValue("");
+    expect(screen.getByLabelText(/notes/i)).toHaveValue("");
+    // The stored addresses seed the repeating editor.
+    expect(screen.getByLabelText(/city/i)).toHaveValue("San Francisco");
+  });
+
+  it("adds and removes address rows, serializing them to the hidden input", async () => {
+    const action = jest.fn<Promise<FormState>, [FormState, FormData]>(
+      async () => ({ status: "idle" }),
+    );
+    renderForm(action);
+
+    expect(screen.getByText(/no addresses yet/i)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /add address/i }));
+    await userEvent.type(screen.getByLabelText(/city/i), "Toronto");
+    await userEvent.selectOptions(screen.getByLabelText(/type/i), "Work");
+
+    await userEvent.type(screen.getByLabelText(/first name/i), "Grace");
+    await userEvent.type(screen.getByLabelText(/last name/i), "Hopper");
+    await userEvent.type(screen.getByLabelText(/^email/i), "grace@example.com");
+    await userEvent.click(screen.getByRole("button", { name: /create contact/i }));
+
+    await waitFor(() => expect(action).toHaveBeenCalled());
+    const submitted = JSON.parse(
+      String(action.mock.calls[0][1].get("addresses")),
+    ) as Array<{ type: string; city: string | null }>;
+    expect(submitted).toHaveLength(1);
+    expect(submitted[0]).toMatchObject({ type: "Work", city: "Toronto" });
+  });
+
+  it("clears a removed address row from the payload", async () => {
+    renderForm(jest.fn(), makeContact());
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /remove address 1/i }),
+    );
+
+    expect(screen.getByText(/no addresses yet/i)).toBeInTheDocument();
   });
 
   it("submits the entered values to the action", async () => {
