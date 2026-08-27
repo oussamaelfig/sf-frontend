@@ -70,6 +70,36 @@ Click a row to get here. It confirms the detail read path works end to end:
 Hand-editing the URL to an ID that does not exist gives you the styled 404 page
 (`src/app/not-found.tsx`), not a stack trace — that is also worth a quick try.
 
+### New features in this fork
+
+The three screenshots below show what this fork adds on top of the original
+app — profile photos ([#1](https://github.com/oussamaelfig/sf-frontend/pull/1)),
+multiple typed addresses ([#3](https://github.com/oussamaelfig/sf-frontend/pull/3)),
+and QR/vCard sharing ([#4](https://github.com/oussamaelfig/sf-frontend/pull/4)).
+Each shipped through a Qodo-reviewed, merged PR.
+
+#### Contacts list — circular photo avatars with initials fallback
+
+![Contacts list with circular photo avatars](docs/screenshots/contacts-list.png)
+
+Contacts with a photo get a LinkedIn-style circular avatar; contacts without
+one keep their tinted initials bubble.
+
+#### Contact detail — typed addresses and the share card
+
+![Contact detail with typed addresses and QR share card](docs/screenshots/contact-detail.png)
+
+The photo renders in the header, each address carries a Home/Work/Other badge,
+and the share card offers a scannable QR code plus a `.vcf` download.
+
+#### Edit form — photo controls and the address editor
+
+![Edit form with photo upload and multi-address editor](docs/screenshots/contact-edit.png)
+
+Photos can be replaced or removed with a live circular preview (the existing
+photo is carried through the full-replace `PUT`), and addresses are managed in
+a repeating editor with a type selector per row.
+
 ## Scripts
 
 | Script                    | What it does                                        |
