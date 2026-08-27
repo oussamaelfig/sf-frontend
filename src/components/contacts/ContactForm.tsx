@@ -8,7 +8,7 @@ import Field from "@/components/ui/Field";
 import AddressesField, { toAddressInput } from "@/components/contacts/AddressesField";
 import PhotoField from "@/components/contacts/PhotoField";
 import Button, { buttonClasses } from "@/components/ui/Button";
-import { CONTACT_FIELD_GROUPS } from "@/lib/contacts/schema";
+import { CONTACT_FIELD_GROUPS, safeParseAddresses } from "@/lib/contacts/schema";
 import {
   EMPTY_FORM_STATE,
   type AddressInput,
@@ -38,11 +38,10 @@ function SubmitButton({ label, disabled }: { label: string; disabled?: boolean }
 /** Addresses to seed the editor with: the echoed submit, else the contact's. */
 function initialAddresses(state: FormState, contact?: Contact): AddressInput[] {
   if (state.values?.addresses) {
-    try {
-      return JSON.parse(state.values.addresses) as AddressInput[];
-    } catch {
-      // Unreadable echo (should not happen); fall through to the stored set.
-    }
+    // Echoes are untrusted: a rejected submit can carry any string, so parse
+    // and validate rather than cast; bad echoes fall back to the stored set.
+    const echoed = safeParseAddresses(state.values.addresses);
+    if (echoed) return echoed;
   }
   return (contact?.addresses ?? []).map(toAddressInput);
 }

@@ -2,6 +2,7 @@ import {
   CONTACT_FIELDS,
   contactInputSchema,
   formDataToValues,
+  safeParseAddresses,
   zodFieldErrors,
 } from "@/lib/contacts/schema";
 
@@ -108,6 +109,32 @@ describe("contactInputSchema", () => {
     expect(zodFieldErrors(tooMany.error!).addresses).toBe(
       "A contact can have at most 10 addresses",
     );
+  });
+});
+
+describe("safeParseAddresses", () => {
+  it("returns the rows for a valid echo", () => {
+    const rows = safeParseAddresses(
+      JSON.stringify([{ type: "Home", city: "Toronto" }]),
+    );
+    expect(rows).toEqual([
+      {
+        type: "Home",
+        street: null,
+        city: "Toronto",
+        state: null,
+        postal_code: null,
+        country: null,
+      },
+    ]);
+  });
+
+  it("returns null for non-array or malformed echoes instead of crashing", () => {
+    // Parseable JSON that is not an address array — the shapes Qodo flagged.
+    expect(safeParseAddresses("null")).toBeNull();
+    expect(safeParseAddresses("{}")).toBeNull();
+    expect(safeParseAddresses('[{"type":"Vacation"}]')).toBeNull();
+    expect(safeParseAddresses("{oops")).toBeNull();
   });
 });
 
