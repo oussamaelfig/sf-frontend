@@ -20,8 +20,9 @@ export default async function ShareContactCard({ contact }: { contact: Contact }
       errorCorrectionLevel: "M",
       margin: 2,
     });
-  } catch {
-    svg = null;
+  } catch (error) {
+    // Logged so genuine QR regressions don't masquerade as size limits.
+    console.error(`QR generation failed for contact ${contact.id}:`, error);
   }
 
   return (
@@ -50,7 +51,7 @@ export default async function ShareContactCard({ contact }: { contact: Contact }
           />
         ) : (
           <div className="flex h-36 w-36 shrink-0 items-center justify-center rounded-md border border-dashed border-border p-3 text-center text-[12px] text-muted-foreground">
-            Too much detail for a QR code — use the download instead.
+            No QR code for this contact — use the download instead.
           </div>
         )}
 
@@ -58,7 +59,7 @@ export default async function ShareContactCard({ contact }: { contact: Contact }
           <p className="max-w-xs text-[13px] text-muted-foreground">
             {svg
               ? `Scan with a phone camera to add ${contact.first_name} straight to its contacts, or download the vCard.`
-              : `This contact card is too large to fit in a QR code, but the vCard download carries everything.`}
+              : `A QR code could not be generated for this contact — usually it carries too much data to fit — but the vCard download carries everything.`}
           </p>
           <a
             href={vCardDataUrl(contact)}
