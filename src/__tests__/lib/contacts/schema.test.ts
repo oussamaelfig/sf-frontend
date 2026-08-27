@@ -80,7 +80,9 @@ describe("formDataToValues", () => {
     expect(extracted.first_name).toBe("Grace");
     expect(extracted.last_name).toBe("");
     expect(Object.keys(extracted).sort()).toEqual(
-      CONTACT_FIELDS.map((field) => field.name).sort(),
+      // `photo` submits through the custom picker's hidden input, so it is
+      // collected alongside the metadata-driven fields.
+      [...CONTACT_FIELDS.map((field) => field.name), "photo"].sort(),
     );
   });
 });

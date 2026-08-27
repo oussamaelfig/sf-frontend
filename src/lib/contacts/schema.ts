@@ -28,6 +28,11 @@ function requiredText(max: number, label: string) {
     .max(max, `${label} must be ${max} characters or fewer`);
 }
 
+/** Shape the API accepts for `photo`; anything else is rejected server-side too. */
+const PHOTO_DATA_URL = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+/** The API caps photos at 2 MiB decoded ≈ 2.8M base64 characters. */
+const MAX_PHOTO_CHARS = 2_800_000;
+
 export const contactInputSchema = z.object({
   first_name: requiredText(100, "First name"),
   last_name: requiredText(100, "Last name"),
@@ -49,6 +54,17 @@ export const contactInputSchema = z.object({
   notes: z
     .string()
     .trim()
+    .transform((value) => value || null)
+    .nullable()
+    .default(null),
+  photo: z
+    .string()
+    .trim()
+    .max(MAX_PHOTO_CHARS, "Photo must be 2 MB or smaller")
+    .refine(
+      (value) => value === "" || PHOTO_DATA_URL.test(value),
+      "Photo must be an embedded PNG, JPEG, or WebP image",
+    )
     .transform((value) => value || null)
     .nullable()
     .default(null),
@@ -218,10 +234,15 @@ export const CONTACT_FIELDS: ContactFieldSpec[] = CONTACT_FIELD_GROUPS.flatMap(
 export function formDataToValues(
   formData: FormData,
 ): Record<keyof ContactInput, string> {
-  return Object.fromEntries(
-    CONTACT_FIELDS.map((field) => [
-      field.name,
-      String(formData.get(field.name) ?? ""),
-    ]),
-  ) as Record<keyof ContactInput, string>;
+  return {
+    ...Object.fromEntries(
+      CONTACT_FIELDS.map((field) => [
+        field.name,
+        String(formData.get(field.name) ?? ""),
+      ]),
+    ),
+    // The photo control is custom (file picker + preview), so it lives outside
+    // CONTACT_FIELD_GROUPS and submits through a hidden input instead.
+    photo: String(formData.get("photo") ?? ""),
+  } as Record<keyof ContactInput, string>;
 }
