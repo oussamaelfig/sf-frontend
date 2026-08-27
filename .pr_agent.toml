@@ -1,0 +1,24 @@
+# Qodo Merge (PR-Agent) repo-level configuration.
+# Tunes automatic reviews to this codebase's standards; see best_practices.md.
+
+[pr_reviewer]
+extra_instructions = """
+Beyond the generic checks:
+1. Client components must never call the backend directly; data access lives
+   in server-only modules (src/lib/contacts/api.ts).
+2. Zod schemas must mirror the API contract (limits, required fields) exactly.
+3. Async work feeding a form submit must gate the submit and invalidate stale
+   results — flag any state update after an await without a generation check.
+4. Tailwind must use design-system tokens, never raw color classes.
+5. Flag generated artifacts and dead code; this repo values minimal diffs.
+"""
+
+[pr_code_suggestions]
+extra_instructions = """
+Prefer suggestions that keep the metadata-driven form architecture intact
+(CONTACT_FIELD_GROUPS + formDataToValues); ad-hoc uncollected inputs will be
+declined.
+"""
+
+[pr_description]
+add_original_user_description = true
