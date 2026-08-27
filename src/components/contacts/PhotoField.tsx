@@ -43,16 +43,27 @@ async function fileToDataUrl(file: File): Promise<string> {
 export default function PhotoField({
   defaultValue,
   error,
+  onBusyChange,
 }: {
   defaultValue?: string;
   error?: string;
+  /** Lets the form disable submission while a photo is still converting. */
+  onBusyChange?: (busy: boolean) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  // Invalidates in-flight conversions when the user removes or re-picks a
+  // photo, so a slow conversion can never resurrect a removed image.
+  const generationRef = useRef(0);
   const [photo, setPhoto] = useState(defaultValue ?? "");
   const [busy, setBusy] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
   const message = localError ?? error;
+
+  function updateBusy(next: boolean) {
+    setBusy(next);
+    onBusyChange?.(next);
+  }
 
   async function onFileChosen(file: File | undefined) {
     if (!file) return;
@@ -65,14 +76,18 @@ export default function PhotoField({
       return;
     }
 
-    setBusy(true);
+    const generation = ++generationRef.current;
+    updateBusy(true);
     setLocalError(null);
     try {
-      setPhoto(await fileToDataUrl(file));
+      const dataUrl = await fileToDataUrl(file);
+      if (generationRef.current === generation) setPhoto(dataUrl);
     } catch {
-      setLocalError("That image could not be read. Try a different file.");
+      if (generationRef.current === generation) {
+        setLocalError("That image could not be read. Try a different file.");
+      }
     } finally {
-      setBusy(false);
+      if (generationRef.current === generation) updateBusy(false);
     }
   }
 
@@ -126,6 +141,8 @@ export default function PhotoField({
               type="button"
               variant="ghost"
               onClick={() => {
+                generationRef.current += 1;
+                updateBusy(false);
                 setPhoto("");
                 setLocalError(null);
               }}
