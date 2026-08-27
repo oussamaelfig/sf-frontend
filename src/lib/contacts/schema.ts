@@ -97,6 +97,26 @@ export const contactInputSchema = z.object({
 
 export type ContactFormValues = z.input<typeof contactInputSchema>;
 
+/**
+ * Parse an echoed `addresses` JSON string back into rows, or null when it is
+ * not a valid address array. Echoed form values are untrusted runtime data —
+ * a rejected submit can carry any string — so the editor must not assume the
+ * shape survived the round trip.
+ */
+export function safeParseAddresses(
+  value: string,
+): z.output<typeof addressInputSchema>[] | null {
+  try {
+    const result = z
+      .array(addressInputSchema)
+      .max(MAX_ADDRESSES)
+      .safeParse(JSON.parse(value));
+    return result.success ? result.data : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Collapse a ZodError into one message per field, keyed by input name. */
 export function zodFieldErrors(
   error: z.ZodError,
